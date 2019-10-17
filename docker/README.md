@@ -1,5 +1,5 @@
-# Dockerimage for training and using Autoencoders
-Here is a dockerimage containing the appropriate environment for training RGB and/or Point Cloud autoencoders. It also comes with ROS. It is based on a Ubuntu 18.04 distribution and cuda 10.0.
+# Dockerimage for training and using pytorch and dgl
+It is based on a Ubuntu 18.04 distribution and cuda 10.0.
 
 ## Get it up and running
 ### Step 1: Clone the repo
@@ -9,13 +9,12 @@ git clone
 
 ### Step 2: Build the docker file
 It can take a while, a lot of things are being included. Only has to be done when the dockerfile has been changed.
-First, inspect docker/Dockerfile to make sure the ROS environment is setup with the ip of your host machine and the ROS master.
 ```
 cd docker && sh build.sh
 ```
 
 ### Step 3: run docker
-Look at run.sh and make sure that the catkin_ws folder is mapped correctly. If the container is already running, use the clean.sh script.
+Look at run.sh and make sure that the folders are mapped as you want. If the container is already running, use the clean.sh script.
 ```
 sh run.sh # gives you a cmdline to the container
 ```
