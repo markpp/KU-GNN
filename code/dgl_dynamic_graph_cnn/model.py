@@ -3,9 +3,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from dgl.nn.pytorch import KNNGraph, EdgeConv
 
+
 class Model(nn.Module):
-    def __init__(self, k, feature_dims, emb_dims, output_classes, input_dims=3,
-                 dropout_prob=0.5):
+    def __init__(self, k, feature_dims, emb_dims, output_dims, input_dims=3,
+                 dropout_prob=0.5, rep='pn'):
         super(Model, self).__init__()
 
         self.nng = KNNGraph(k)
@@ -33,13 +34,31 @@ class Model(nn.Module):
             self.bn_embs.append(nn.BatchNorm1d(emb_dims[i]))
             self.dropouts.append(nn.Dropout(dropout_prob))
 
-        self.proj_output = nn.Linear(emb_dims[-1], output_classes)
+        self.proj_output = nn.Linear(emb_dims[-1], output_dims)
+
+        self.rep = rep
+        #pose_dims = [16, 8, 3]
+
+        #self.pose = nn.ModuleList()
+        #self.bn_pose = nn.ModuleList()
+        #self.pose_dropouts = nn.ModuleList()
+
+        #self.num_pose = len(pose_dims) - 1
+        #for i in range(1, self.num_pose + 1):
+            #self.pose.append(nn.Linear(pose_dims[i - 1])
+            #self.bn_pose.append(nn.BatchNorm1d(pose_dims[i]))
+            #self.pose_dropouts.append(nn.Dropout(dropout_prob))
+
+        self.l1 = nn.Linear(output_dims, 16)
+        self.l2 = nn.Linear(16, 8)
+        self.l3 = nn.Linear(8, 3)
 
     def forward(self, x):
         hs = []
         batch_size, n_points, x_dims = x.shape
         h = x
 
+        
         for i in range(self.num_layers):
             g = self.nng(h)
             h = h.view(batch_size * n_points, -1)
@@ -61,13 +80,19 @@ class Model(nn.Module):
             h = self.dropouts[i](h)
 
         h = self.proj_output(h)
-        return h
 
+        #pose_dims = [16, 8, 3]
+        #for i in pose_dims:
 
-def compute_loss(logits, y, eps=0.2):
-    num_classes = logits.shape[1]
-    one_hot = torch.zeros_like(logits).scatter_(1, y.view(-1, 1), 1)
-    one_hot = one_hot * (1 - eps) + (1 - one_hot) * eps / (num_classes - 1)
-    log_prob = F.log_softmax(logits, 1)
-    loss = -(one_hot * log_prob).sum(1).mean()
-    return loss
+        p = F.relu(self.l1(h))
+        p = F.relu(self.l2(p))
+        p = F.relu(self.l3(p))
+
+        n = F.relu(self.l1(h))
+        n = F.relu(self.l2(n))
+        n = F.relu(self.l3(n))
+        if self.rep == 'p':
+            return p
+        elif self.rep == 'n':
+            return n
+        return p, n

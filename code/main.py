@@ -44,9 +44,9 @@ if __name__ == '__main__':
   idx = 1
   x = sample_n_points(X[idx],n_points=256)
   #plot_points_with_arrow(x, Y[idx])
-  
+
   G = graphs.NNGraph(x,use_flann=True, center=True, k=8)
-  #plot_graph(G)
+  plot_graph(G)
 
   g_dgl = dgl.DGLGraph(G)
 
