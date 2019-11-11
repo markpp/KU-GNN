@@ -20,7 +20,7 @@ RUN pip3 --no-cache-dir install --upgrade \
 
 RUN pip3 --no-cache-dir install --upgrade \
     numpy scipy pygame matplotlib networkx dgl-cu90 pygsp pyflann3 \
-    requests tqdm argparse sklearn h5py
+    requests tqdm argparse sklearn h5py vg seaborn
 #dgl-cu100
 
 #RUN pip3 install torch torchvision

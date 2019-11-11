@@ -17,7 +17,7 @@ import os
 import argparse
 import numpy as np
 
-TRAIN = 1
+TRAIN = 0
 
 rep_selection = ['p','n','pn'][1]
 
@@ -25,7 +25,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--dataset-path', type=str, default='')
 parser.add_argument('--load-model-path', type=str, default='models/model_{}.pth'.format(rep_selection))
 parser.add_argument('--save-model-path', type=str, default='models/model_{}.pth'.format(rep_selection))
-parser.add_argument('--num-epochs', type=int, default=25)
+parser.add_argument('--num-epochs', type=int, default=15)
 parser.add_argument('--num-workers', type=int, default=0)
 parser.add_argument('--batch-size', type=int, default=48)
 args = parser.parse_args()
@@ -115,9 +115,10 @@ def evaluate(model, eval_loader, dev):
     return (total_error / num_batches)
 
 def predict(model, dev):
-    data = torch.from_numpy(np.load('data/testx.npy',allow_pickle=True)[:2])
+    model.eval()
+    data = torch.from_numpy(np.load('data/testx.npy',allow_pickle=True)[:])
     data = data.to(dev)
-    label = torch.from_numpy(np.load('data/testy.npy',allow_pickle=True)[:2].astype('float32'))
+    label = torch.from_numpy(np.load('data/testy.npy',allow_pickle=True)[:].astype('float32'))
     label = label.to(dev)
     #writer = SummaryWriter('runs/experiment_1')
     #writer.add_graph(model, data)
@@ -142,7 +143,7 @@ def predict(model, dev):
     np.save("pred_{}.npy".format(rep_selection),pred)
 
 
-model = Model(10, [64, 64, 128, 256], [512, 512, 256], 48, rep = rep_selection)
+model = Model(10, [64, 64, 128, 256], [512, 512, 256], output_dims=48, rep=rep_selection)
 
 modelnet = EarNet(local_path, 1024)
 
@@ -154,6 +155,21 @@ if TRAIN:
 
     scheduler = optim.lr_scheduler.CosineAnnealingLR(opt, args.num_epochs, eta_min=0.0001)
 
+    '''
+    print("Model's parameters:")
+    print("total parms: {}".format(sum(p.numel() for p in model.parameters())))
+    print("trainable parms: {}".format(sum(p.numel() for p in model.parameters() if p.requires_grad)))
+
+    # Print model's state_dict
+    print("Model's state_dict:")
+    for param_tensor in model.state_dict():
+        print(param_tensor, "\t", model.state_dict()[param_tensor].size())
+
+    # Print optimizer's state_dict
+    print("Optimizer's state_dict:")
+    for var_name in opt.state_dict():
+        print(var_name, "\t", opt.state_dict()[var_name])
+    '''
     train_loader = CustomDataLoader(modelnet.train())
     valid_loader = CustomDataLoader(modelnet.valid())
     test_loader = CustomDataLoader(modelnet.test())
@@ -161,10 +177,11 @@ if TRAIN:
     best_valid_err = 999.9
     best_test_err = 999.9
 
-    plot_file = open("plot.txt",'w')
+    plot_file = open("{}_err.txt".format(rep_selection),'w')
     plot_file.write("valid_err:test_err\n")
 
     for epoch in range(args.num_epochs):
+        print('Epoch #%d Training' % epoch)
         _ = train(model, opt, scheduler, train_loader, dev)
         if epoch % 1 == 0:
             print('Epoch #%d Validating' % epoch)
@@ -172,13 +189,14 @@ if TRAIN:
             valid_err = evaluate(model, valid_loader, dev)
             test_err = evaluate(model, test_loader, dev)
 
-            plot_file.write("{}:{}\n".format(valid_err,test_err))
+            plot_file.write("{:.5f}:{:.5f}\n".format(valid_err,test_err))
             print(valid_err)
             if valid_err < best_valid_err:
                 best_valid_err = valid_err
                 best_test_err = test_err
                 if args.save_model_path:
                     torch.save(model.state_dict(), args.save_model_path)
+                    torch.save(model, 'models/model_{}.pkl'.format(rep_selection))
             print('Current validation err: %.5f (best: %.5f), test err: %.5f (best: %.5f)' % (valid_err, best_valid_err, test_err, best_test_err))
 
     plot_file.close()
@@ -186,7 +204,7 @@ else:
     dev = torch.device("cpu")
     model = model.to(dev)
 
-    test_loader = CustomDataLoader(modelnet.test())
+    #test_loader = CustomDataLoader(modelnet.test())
 
     if args.load_model_path:
         model.load_state_dict(torch.load(args.load_model_path, map_location=dev))

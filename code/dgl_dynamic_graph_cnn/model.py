@@ -36,21 +36,24 @@ class Model(nn.Module):
 
         self.proj_output = nn.Linear(emb_dims[-1], output_dims)
 
-        self.rep = rep
-        #pose_dims = [16, 8, 3]
+        self.rep = rep # selects output representation
 
-        #self.pose = nn.ModuleList()
-        #self.bn_pose = nn.ModuleList()
-        #self.pose_dropouts = nn.ModuleList()
-
-        #self.num_pose = len(pose_dims) - 1
-        #for i in range(1, self.num_pose + 1):
-            #self.pose.append(nn.Linear(pose_dims[i - 1])
-            #self.bn_pose.append(nn.BatchNorm1d(pose_dims[i]))
-            #self.pose_dropouts.append(nn.Dropout(dropout_prob))
-
+        '''
+        enc_dims = [16, 8, 3]
+        self.encs = nn.ModuleList()
+        self.bn_encs = nn.ModuleList()
+        #self.dropouts = nn.ModuleList()
+        self.num_encs = len(enc_dims)
+        for i in range(self.num_encs):
+            self.encs.append(nn.Linear(enc_dims[i - 1] if i > 0 else output_dims,
+                                       enc_dims[i]))
+            self.bn_encs.append(nn.BatchNorm1d(emb_dims[i]))
+        self.enc_output = nn.Linear(emb_dims[-1], 3)
+        '''
         self.l1 = nn.Linear(output_dims, 16)
+        self.b1 = nn.BatchNorm1d(16)
         self.l2 = nn.Linear(16, 8)
+        self.b2 = nn.BatchNorm1d(8)
         self.l3 = nn.Linear(8, 3)
 
     def forward(self, x):
@@ -58,7 +61,6 @@ class Model(nn.Module):
         batch_size, n_points, x_dims = x.shape
         h = x
 
-        
         for i in range(self.num_layers):
             g = self.nng(h)
             h = h.view(batch_size * n_points, -1)
@@ -80,18 +82,30 @@ class Model(nn.Module):
             h = self.dropouts[i](h)
 
         h = self.proj_output(h)
+        #return h
 
-        #pose_dims = [16, 8, 3]
-        #for i in pose_dims:
 
-        p = F.relu(self.l1(h))
-        p = F.relu(self.l2(p))
-        p = F.relu(self.l3(p))
 
-        n = F.relu(self.l1(h))
-        n = F.relu(self.l2(n))
-        n = F.relu(self.l3(n))
+        p = F.leaky_relu(self.b1(self.l1(h)))
+        p = F.leaky_relu(self.b2(self.l2(p)))
+        p = self.l3(p)
+        #'''
+        n = F.leaky_relu(self.b1(self.l1(h)))
+        n = F.leaky_relu(self.b2(self.l2(n)))
+        n = self.l3(n)
+        #'''
         if self.rep == 'p':
+            '''
+            for i in range(self.num_encs):
+                print(h.shape)
+                h = self.encs[i](h)
+                print(h.shape)
+                h = self.bn_encs[i](h)
+                print(h.shape)
+                h = F.leaky_relu(h, 0.2)
+                #h = self.dropouts[i](h)
+            return self.enc_output(h)
+            '''
             return p
         elif self.rep == 'n':
             return n
