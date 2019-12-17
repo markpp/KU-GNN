@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
+from optimizer import Lookahead, RAdam
+
 #import torch.onnx
 #from torch.utils.tensorboard import SummaryWriter
 
@@ -17,31 +19,33 @@ import os
 import argparse
 import numpy as np
 
-TRAIN = 0
-
-rep_selection = ['p','n','pn'][1]
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset-path', type=str, default='')
-parser.add_argument('--load-model-path', type=str, default='models/model_{}.pth'.format(rep_selection))
-parser.add_argument('--save-model-path', type=str, default='models/model_{}.pth'.format(rep_selection))
-parser.add_argument('--num-epochs', type=int, default=15)
-parser.add_argument('--num-workers', type=int, default=0)
-parser.add_argument('--batch-size', type=int, default=48)
+parser.add_argument('--num-epochs', type=int, default=96)
+parser.add_argument('--num-workers', type=int, default=6)
+parser.add_argument('--batch-size', type=int, default=64)
 args = parser.parse_args()
 
 num_workers = args.num_workers
 batch_size = args.batch_size
-local_path = args.dataset_path or os.path.join(os.getcwd(), "lists")
+local_path = args.dataset_path or os.path.join(os.getcwd(), "output")
 
-CustomDataLoader = partial(
+TrainDataLoader = partial(
         DataLoader,
         num_workers=num_workers,
         batch_size=batch_size,
         shuffle=True,
         drop_last=True)
 
-def train(model, opt, scheduler, train_loader, dev):
+TestDataLoader = partial(
+        DataLoader,
+        num_workers=num_workers,
+        batch_size=batch_size,
+        shuffle=False,
+        drop_last=False)
+
+def train(model, opt, train_loader, dev):
     model.train()
     criterion = nn.MSELoss()
     total_loss = 0
@@ -60,26 +64,25 @@ def train(model, opt, scheduler, train_loader, dev):
                 n_loss = criterion(n, label[:,3:])
                 loss = n_loss
             else:
-                p, n = model(data)
-                p_loss = criterion(p, label[:,:3])
-                n_loss = criterion(n, label[:,3:])
+                pn = model(data)
+                p_loss = criterion(pn[:,:3], label[:,:3])
+                n_loss = criterion(pn[:,3:], label[:,3:])
                 loss = p_loss + n_loss
             loss.backward()
             opt.step()
-            scheduler.step()
 
             loss_ = loss.item()
             total_loss += loss_
             num_batches += 1
+            epoch_loss = total_loss / num_batches
 
             for param_group in opt.param_groups:
                 lr = param_group['lr']
             tq.set_postfix({
                 'LR': '%.5f' % lr,
                 'BatchLoss': '%.5f' % loss_,
-                'EpochLoss': '%.5f' % (total_loss / num_batches)})
-
-    return (total_loss / num_batches)
+                'EpochLoss': '%.5f' % epoch_loss})
+    return epoch_loss
 
 def evaluate(model, eval_loader, dev):
     model.eval()
@@ -100,54 +103,29 @@ def evaluate(model, eval_loader, dev):
                     n = model(data)
                     err = criterion(n, label[:,3:])
                 else:
-                    p, n = model(data)
-                    p_err = criterion(p, label[:,:3])
-                    n_err = criterion(n, label[:,3:])
+                    pn = model(data)
+                    p_err = criterion(pn[:,:3], label[:,:3])
+                    n_err = criterion(pn[:,3:], label[:,3:])
                     err = p_err + n_err
 
                 total_error += err
                 num_batches += 1
 
+                epoch_error = total_error / num_batches
                 tq.set_postfix({
                     'BatchErr': '%.5f' % err,
-                    'EpochErr': '%.5f' % (total_error / num_batches)})
+                    'EpochErr': '%.5f' % (epoch_error)})
+    return epoch_error
 
-    return (total_error / num_batches)
+if __name__ == '__main__':
+    rep_selection = ['p','n','pn'][1]
 
-def predict(model, dev):
-    model.eval()
-    data = torch.from_numpy(np.load('data/testx.npy',allow_pickle=True)[:])
-    data = data.to(dev)
-    label = torch.from_numpy(np.load('data/testy.npy',allow_pickle=True)[:].astype('float32'))
-    label = label.to(dev)
-    #writer = SummaryWriter('runs/experiment_1')
-    #writer.add_graph(model, data)
-    #writer.close()
+    with open('/home/datasets/train_docker.txt') as f:
+        num_train = len(f.read().splitlines())
 
-    if rep_selection == 'p':
-        p = model(data)
-        pred = p.data.numpy()
-        err = nn.L1Loss()(p, label[:,:3])
-    elif rep_selection == 'n':
-        n = model(data)
-        pred = n.data.numpy()
-        err = nn.L1Loss()(n, label[:,3:])
-    else:
-        p, n = model(data)
-        p_err = nn.L1Loss()(p, label[:,:3])
-        n_err = nn.L1Loss()(n, label[:,3:])
-        err = (p_err + n_err) / 2
-        pred = np.concatenate((p.data.numpy(), n.data.numpy()), axis=1)
-    print(err)
-    print(pred.shape)
-    np.save("pred_{}.npy".format(rep_selection),pred)
+    variables = [num_train//64, num_train//32, num_train//16, num_train//8, num_train//4, num_train//2, num_train][2:]
+    print("variables: {}".format(variables))
 
-
-model = Model(10, [64, 64, 128, 256], [512, 512, 256], output_dims=48, rep=rep_selection)
-
-modelnet = EarNet(local_path, 1024)
-
-if TRAIN:
     dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")##
     model = model.to(dev)
 
@@ -205,7 +183,7 @@ else:
     # extract weights
     if args.load_model_path:
         model.load_state_dict(torch.load(args.load_model_path))
-    
+
     l1_w = model.l1.weight.detach().numpy()
     l2_w = model.l2.weight.detach().numpy()
     l3_w = model.l3.weight.detach().numpy()

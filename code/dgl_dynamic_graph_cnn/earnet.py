@@ -1,42 +1,43 @@
 import numpy as np
 from torch.utils.data import Dataset
+import json
+import pandas as pd
+from pyntcloud import PyntCloud
+import random
+from in_out import load_x_y, sample_x
+
 
 class EarNet(object):
-    def __init__(self, path, num_points=1024):
-        self.num_points = num_points
+    def __init__(self,path='/home/datasets/'):
+        self.path = path
+    def train(self,split):
+        return EarNetDataset(self,dataset='train',path=self.path,split=split)
 
-    def train(self):
-        return EarNetDataset(self, 'train')
-
-    def valid(self):
-        return EarNetDataset(self, 'valid')
+    def val(self):
+        return EarNetDataset(self,dataset='val',path=self.path)
 
     def test(self):
-        return EarNetDataset(self, 'test')
+        return EarNetDataset(self,dataset='test',path=self.path)
 
 class EarNetDataset(Dataset):
-    def __init__(self, modelnet, mode):
+    def __init__(self,modelnet,dataset='train',path='data/',use_npy=False,split=None):
         super(EarNetDataset, self).__init__()
-        self.num_points = modelnet.num_points
-        self.mode = mode
-
-        if mode == 'train':
-            self.data = np.load('data/trainx.npy',allow_pickle=True)
-            self.label = np.load('data/trainy.npy',allow_pickle=True)[:,:].astype('float32')
-            print(self.data.shape)#(7872, 2048, 3)
-            print(self.label.shape)#(7872, 1)
-        elif mode == 'valid':
-            self.data = np.load('data/valx.npy',allow_pickle=True)
-            self.label = np.load('data/valy.npy',allow_pickle=True)[:,:].astype('float32')
-        elif mode == 'test':
-            self.data = np.load('data/testx.npy',allow_pickle=True)
-            self.label = np.load('data/testy.npy',allow_pickle=True)[:,:].astype('float32')
+        if use_npy:
+            self.data = np.load('{}/{}x.npy'.format(path,dataset),allow_pickle=True)
+            self.label = np.load('{}/{}trainy.npy'.format(path,dataset),allow_pickle=True)[:,:].astype('float32')
+        else:
+            with open('{}/{}_docker.txt'.format(path,dataset)) as f:
+                pc_files = f.read().splitlines()
+                if split:
+                    self.data, self.label = load_x_y(pc_files[:split])
+                else:
+                    self.data, self.label = load_x_y(pc_files)
 
     def __len__(self):
         return self.data.shape[0]
 
     def __getitem__(self, i):
-        x = self.data[i]
+        x = sample_x(self.data[i])
         y = self.label[i]
         #if self.mode == 'train':
             #x = self.translate(x)

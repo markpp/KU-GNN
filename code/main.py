@@ -1,3 +1,22 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+from torch.utils.data import DataLoader
+from optimizer import Lookahead, RAdam
+
+#import torch.onnx
+#from torch.utils.tensorboard import SummaryWriter
+
+from earnet import EarNet
+from model import Model
+from dgl.data.utils import download, get_download_dir
+
+from functools import partial
+import tqdm
+import urllib
+import os
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -39,10 +58,40 @@ def plot_graph(G):
   plt.show()
 
 if __name__ == '__main__':
-  X = np.load("../data/val_X.npy",allow_pickle=True)
-  print("{} point clouds, cloud 0 has shape {}".format(X.shape,X[0].shape))
-  Y = np.load("../data/val_Y.npy",allow_pickle=True)
-  print("{} point+normals, p0=Y[0,:3], pn=Y[0,3:]".format(Y.shape))
+    rep_selection = ['p','n','pn'][1]
+
+    with open('/home/datasets/train_docker.txt') as f:
+        num_train = len(f.read().splitlines())
+
+    variables = [num_train//64, num_train//32, num_train//16, num_train//8, num_train//4, num_train//2, num_train][:2]
+    print("variables: {}".format(variables))
+
+    dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")##
+
+    modelnet = EarNet(path='/home/datasets')
+    val_loader = TestDataLoader(modelnet.val())
+    test_loader = TestDataLoader(modelnet.test())
+
+    for var in variables:
+        print(var)
+        train_loader = TrainDataLoader(modelnet.train(split=var))
+
+        model = Model(10, [64, 64, 128, 256], [512, 512, 256], output_dims=3, rep=rep_selection)
+        model = model.to(dev)
+
+        opt = Lookahead(base_optimizer=RAdam(model.parameters(), lr=0.01),k=5,alpha=0.5)
+        #opt = optim.SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=1e-4)
+        #scheduler = optim.lr_scheduler.CosineAnnealingLR(opt, args.num_epochs, eta_min=0.0001)
+
+        best_val_err = 999.9
+        best_test_err = 999.9
+
+        experiment_dir = os.path.join(local_path,"{}".format(var))
+        if not os.path.exists(experiment_dir):
+            os.makedirs(experiment_dir)
+
+        plot_file = open("{}/err_{}.txt".format(experiment_dir,rep_selection),'w')
+        plot_file.write("val_err:test_err\n")
 
   for idx in range(2,4):
     x = sample_n_points(X[idx],n_points=256*4)

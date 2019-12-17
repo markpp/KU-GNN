@@ -9,4 +9,5 @@ nvidia-docker run -it --net=host \
   -v "/tmp/.X11-unix:/tmp/.X11-unix" \
   -v "$(pwd)"/../code:/home/code \
   -v "$(pwd)"/../data:/home/data \
+  -v /home/dmri/datasets/supervised:/home/datasets \
   dockergnn:latest

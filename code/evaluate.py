@@ -5,6 +5,10 @@ import seaborn as sns
 import pandas as pd
 import math
 import os
+import json
+
+local_path = os.path.join(os.getcwd(), "experiments")
+
 
 def vect2angle(a,b):
     #return np.rad2deg(math.atan2(math.sqrt(np.dot(np.cross(a, b), np.cross(a, b))), np.dot(a, b)))
@@ -36,11 +40,11 @@ def plot_dist(d0,folder='other',name='noname'):
     plt.clf()
 
 def plot_dists(d0,d1,d2=None,labels=["Train","Val","Test"],folder='other',name='noname'):
-
-    ax = sns.distplot(d0,kde=False,color="b",bins=20,norm_hist=True,label=labels[0])
-    ax = sns.distplot(d1,kde=False,color="g",bins=20,norm_hist=True,label=labels[1])
+    n_bins = 15
+    ax = sns.distplot(d0,kde=False,color="b",bins=n_bins,hist=True,label=labels[0])
+    ax = sns.distplot(d1,kde=False,color="g",bins=n_bins,hist=True,label=labels[1])
     if d2 is not None:
-        ax = sns.distplot(d2,kde=False,color="r",bins=20,norm_hist=True,label=labels[2])
+        ax = sns.distplot(d2,kde=False,color="r",bins=n_bins,hist=True,label=labels[2])
     ax.legend()
     ax.set_ylabel('Freqency')
     #ax.set_yticklabels([])
@@ -50,11 +54,11 @@ def plot_dists(d0,d1,d2=None,labels=["Train","Val","Test"],folder='other',name='
 
     if name is 'pos_err':
         ax.set_xlabel('[m]')
-        ax.set_title('Position prediction errors')
+        ax.set_title('Difference in positions between ground-truth and prediction')
         #ax.set_xlim([0.0,0.4])
     elif name is 'ang_err':
         ax.set_xlabel('[deg]')
-        ax.set_title('Normal prediction errors')
+        ax.set_title('Difference in normals between ground-truth and prediction')
         #ax.set_xlim([0,20])
     else:
         ax.set_xlabel('[]')
@@ -62,8 +66,9 @@ def plot_dists(d0,d1,d2=None,labels=["Train","Val","Test"],folder='other',name='
 
     plt.savefig('{}.png'.format(name))
     plt.clf()
+    #plt.show()
 
-def evaluate_point_normals(gts,preds,folder='other'):
+def evaluate_point_normals(gts,preds):
     pos, dist, norm, ang = [], [], [], []
 
     idx = 0
@@ -83,28 +88,31 @@ def evaluate_point_normals(gts,preds,folder='other'):
         idx += 1
     return np.array(pos), np.array(dist), np.array(norm), np.array(ang)
 
-def prediction_error():
-    gt_train = np.load('output/y_train.npy')
-    pred_train = np.load('output/pred_train.npy')
+def prediction_error(dir,method):
+    method_dir = os.path.join(dir,method)
+    gt_train = np.load(os.path.join(dir,'gt_train.npy'))
+    pred_train = np.load(os.path.join(method_dir,'pred_train.npy'))
     print(pred_train.shape)
     train_pos, train_dist, train_norm, train_ang = evaluate_point_normals(gt_train, pred_train)
     print("TRAIN: pos error mean {:.6f} std {:.6f}, ang error mean {:.6f} std {:.6f}".format(train_dist.mean(),train_dist.std(), train_ang[:,3].mean(),train_ang[:,3].std()))
 
-    gt_val = np.load('output/y_val.npy')
-    pred_val = np.load('output/pred_val.npy')
+    gt_val = np.load(os.path.join(dir,'gt_val.npy'))
+    pred_val = np.load(os.path.join(method_dir,'pred_val.npy'))
     print(pred_val.shape)
     val_pos, val_dist, val_norm, val_ang = evaluate_point_normals(gt_val, pred_val)
     print("VAL: pos error mean {:.6f} std {:.6f}, ang error mean {:.6f} std {:.6f}".format(val_dist.mean(),val_dist.std(), val_ang[:,3].mean(),val_ang[:,3].std()))
 
-    gt_test = np.load('output/y_test.npy')
-    pred_test = np.load('output/pred_test.npy')
+    gt_test = np.load(os.path.join(dir,'gt_test.npy'))
+    pred_test = np.load(os.path.join(method_dir,'pred_test.npy'))
     print(pred_test.shape)
     test_pos, test_dist, test_norm, test_ang = evaluate_point_normals(gt_test, pred_test)
 
     print("TEST: pos error mean {:.6f} std {:.6f}, ang error mean {:.6f} std {:.6f}".format(test_dist.mean(),test_dist.std(), test_ang[:,3].mean(),test_ang[:,3].std()))
+
+    val_dist[val_dist > 0.05] = 0.05
     plot_dists(pd.DataFrame(train_dist,columns=['dp']),pd.DataFrame(val_dist,columns=['dp']), pd.DataFrame(test_dist,columns=['dp']),name='pos_err')
     a = val_ang[:,3]
-    a[a > 30.0] = 30.0
+    a[a > 25.0] = 25.0
     plot_dists(pd.DataFrame(train_ang[:,3],columns=['da']),pd.DataFrame(a,columns=['da']), pd.DataFrame(test_ang[:,3],columns=['da']),name='ang_err')
 
 def pointnet_vs_gnn(gt, pred_gnn, pred_pointnet):
@@ -119,18 +127,6 @@ def pointnet_vs_gnn(gt, pred_gnn, pred_pointnet):
     print("PointNet: pos error mean {:.6f} std {:.6f}, ang error mean {:.6f} std {:.6f}".format(pointnet_dist.mean(),pointnet_dist.std(), pointnet_ang[:,3].mean(),pointnet_ang[:,3].std()))
     plot_dists(pd.DataFrame(gnn_dist,columns=['dp']), pd.DataFrame(pointnet_dist,columns=['dp']),labels=["GNN","PointNet"],name='pos_err')
     plot_dists(pd.DataFrame(gnn_ang[:,3],columns=['da']), pd.DataFrame(pointnet_ang[:,3],columns=['da']),labels=["GNN","PointNet"],name='ang_err')
-
-def compare_two_predictors(gt, pred_ref, pred_comp, ref_name='Single model', comp_name='Seperate models'):
-    print(pred_ref.shape)
-    ref_pos, ref_dist, ref_norm, ref_ang = evaluate_point_normals(gt, pred_ref)
-    print("ref: pos error mean {:.6f} std {:.6f}, ang error mean {:.6f} std {:.6f}".format(ref_dist.mean(),ref_dist.std(), ref_ang[:,3].mean(),ref_ang[:,3].std()))
-
-    print(pred_comp.shape)
-    comp_pos, comp_dist, comp_norm, comp_ang = evaluate_point_normals(gt, pred_comp)
-    print("comp: pos error mean {:.6f} std {:.6f}, ang error mean {:.6f} std {:.6f}".format(comp_dist.mean(),comp_dist.std(), comp_ang[:,3].mean(),comp_ang[:,3].std()))
-
-    plot_dists(pd.DataFrame(ref_dist,columns=['dp']), pd.DataFrame(comp_dist,columns=['dp']),labels=[ref_name,comp_name],name='pos_err')
-    plot_dists(pd.DataFrame(ref_ang[:,3],columns=['da']), pd.DataFrame(comp_ang[:,3],columns=['da']),labels=[ref_name,comp_name],name='ang_err')
 
 
 def pred_error(ref, pred):
@@ -178,76 +174,100 @@ def plot_err_vs_dataset(data, name="", result_dir=""):
     plt.close()
 
 
+def plot_overview(experiment_name,iterations):
+    names = []
+    datasets = []
+    dist_errs = []
+    ang_errs = []
+    shares = []
+
+    with open('experiments/{}.json'.format(experiment_name)) as f:
+        confs = json.load(f)
+        for iteration in iterations[:]:
+            print("iteration {}".format(iteration))
+            for conf in confs[:]:
+                print(conf)
+                experiment_dir = os.path.join(local_path,"{}/id-{}_it-{}".format(experiment_name,conf['id'],iteration))
+                if not os.path.exists(experiment_dir):
+                    print("dir: {} does not exist".format(experiment_dir))
+
+                for dataset in ["train","val","test"]:
+                    if dataset == 'val' or dataset == 'test':
+                        gt = np.load("{}/gt_{}.npy".format(experiment_dir,dataset))
+                        pred = np.load("{}/pred_{}.npy".format(experiment_dir,dataset))
+                        pos, dist, norm, ang = evaluate_point_normals(gt,pred)
+
+                        names.append(conf['net'])
+                        datasets.append(dataset)
+                        dist_errs.append(dist.mean())
+                        ang_errs.append(ang[:,3].mean())
+                        shares.append(conf['share'])
+
+
+    plt.xlim(0.1,1.0)
+    sns.lineplot(x=shares, y=dist_errs, hue=names, style=datasets)
+    plt.savefig("dist_err.png")
+    plt.close()
+
+    plt.xlim(0.1,1.0)
+    sns.lineplot(x=shares, y=ang_errs, hue=names, style=datasets)
+    plt.savefig("ang_err.png")
+
+
+def plot_individual(experiment_name):
+
+    with open('experiments/{}.json'.format(experiment_name)) as f:
+        confs = json.load(f)
+        iteration = 0
+        print("iteration {}".format(iteration))
+        conf = confs[4]
+        print(conf)
+        experiment_dir = os.path.join(local_path,"{}/id-{}_it-{}".format(experiment_name,conf['id'],iteration))
+        if not os.path.exists(experiment_dir):
+            print("dir: {} does not exist".format(experiment_dir))
+
+        dfs_dist = []
+        dfs_ang = []
+
+        for dataset in ["train","val","test"]:
+            #if dataset == 'val' or dataset == 'test':
+            gt = np.load("{}/gt_{}.npy".format(experiment_dir,dataset))
+            pred = np.load("{}/pred_{}.npy".format(experiment_dir,dataset))
+            pos, dist, norm, ang = evaluate_point_normals(gt,pred)
+            dfs_dist.append(pd.DataFrame(dist,columns=['dp']))
+            dfs_ang.append(pd.DataFrame(ang[:,3],columns=['da']))
+
+    plot_dists(dfs_dist[0],dfs_dist[1],dfs_dist[2],name='individual_dist_err')
+    plot_dists(dfs_ang[0],dfs_ang[1],dfs_ang[2],name='individual_ang_err')
+
+    #plot_dists(pd.DataFrame(gnn_ang[:,3],columns=['da']), pd.DataFrame(pointnet_ang[:,3],columns=['da']),labels=["GNN","PointNet"],name='ang_err')
+
+
 if __name__ == '__main__':
-    data_dir = 'output'
-    folder_list = ['255','510','1020','2040','4080','8160','16320']
 
-    # plot comparison
-    pred_pn = np.load('{}/{}/pred_{}_pn.npy'.format(data_dir,folder_list[-1],'test'))
-    pred_p_n = np.load('{}/{}/pred_{}.npy'.format(data_dir,folder_list[-1],'test'))
-    gt = np.load('{}/gt_{}.npy'.format(data_dir,'test'))
-    compare_two_predictors(gt,pred_pn,pred_p_n)
-
+    plot_individual(experiment_name = 'efficiency')
+    #plot_overview(experiment_name = 'efficiency', iterations = list(range(2)))
     '''
-    # plot error for each dataset
-    data = []
-    for dataset in ['train','val','test'][2:]:
-        print(dataset)
-        gt = np.load('{}/gt_{}.npy'.format(data_dir,dataset))
+    df = pd.read_pickle('eval.pkl')
+    #df = df[df['dataset'].str.startswith('te')]
 
-        for folder in folder_list:
-            pred = np.load('{}/{}/pred_{}.npy'.format(data_dir,folder,dataset))
-            dist, ang = pred_error(gt,pred)
-            data.append([int(folder),dist.mean(),ang[:,3].mean()])
+    names = df['name'].values
+    datasets = df['dataset'].values
+    dist_errs = df['dist_errs'].values
+    ang_errs = df['ang_errs'].values
+    shares = df['shares'].values
 
-    plot_err_vs_dataset(np.array(data))
+    print(names[:2])
+    sns.lineplot(x=shares, y=dist_errs, hue=names, style=datasets)
+    plt.xlim(0.1,1.0)
+    plt.ylim(0.005,0.01)
+    plt.savefig("dist_err.png")
+    plt.close()
     '''
 
     '''
-    # plot error distribution
-    pred = np.load('{}/{}/pred_{}.npy'.format(data_dir,folder_list[-1],'test'))
-    gt = np.load('{}/gt_{}.npy'.format(data_dir,'test'))
-
-    dist, ang = pred_error(gt,pred)
-    plot_dist(pd.DataFrame(dist,columns=['dp']),name='{}/{}_pos_err'.format(data_dir,'test'))
-    plot_dist(pd.DataFrame(ang[:,3],columns=['da']),name='{}/{}_ang_err'.format(data_dir,'test'))
-    '''
-
-    #find_n_best_and_worst()
-
-
-    #pred_pointnet = np.load('data/pred_pointnet_test.npy')
-
-    #pointnet_vs_gnn(gt_test, pred_gnn, pred_pointnet)
-
-    #annotation_error
-    #pred_error(np.load('output/pred_gt0.npy'),np.load('output/pred_gt1.npy'))
-    #pred_error(np.load('data/gnn/testy.npy'),np.load('data/gnn/pred.npy'))
-
-
-    #pred_error(pred_gnn,gt_test)
-
-    #pos = np.concatenate((val_pos,test_pos))
-    #norm = np.concatenate((val_norm,test_norm))
-    #ang = np.concatenate((val_ang,test_ang))
-    #set = np.concatenate((['val']*val_pos.shape[0],['test']*test_pos.shape[0]))
-    #plot_bars(pos, norm, ang, set)
-    #print("GT: pos error {}, norm error {}, ang error {}".format(gt_pos.mean(), gt_norm.mean(), gt_ang.mean()))
-    #plot_bars(gt_pos, gt_norm, gt_ang)
-
-    '''
-    losses = []
-    accuracies = []
-    for i in range(5):
-        loss, acc = train(x_train, x_test, y_train, y_test)
-        losses.append(loss)
-        accuracies.append(acc)
-
-    loss_mean = np.mean(np.array(losses))
-    loss_std = np.std(np.array(losses))
-    print("loss: mean {}, std {}".format(loss_mean,loss_std))
-
-    acc_mean = np.mean(np.array(accuracies))
-    acc_std = np.std(np.array(accuracies))
-    print("acc: mean {}, std {}".format(acc_mean,acc_std))
+    sns.lineplot(x='shares', y='ang_errs', hue='name', style='dataset', data=df)
+    plt.xlim(0.1,1.0)
+    plt.ylim(0.02,0.08)
+    plt.savefig("ang_err.png")
     '''

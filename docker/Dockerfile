@@ -1,5 +1,6 @@
 #FROM nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04
-FROM nvidia/cuda:9.0-cudnn7-devel-ubuntu16.04
+#FROM nvidia/cuda:9.0-cudnn7-devel-ubuntu16.04
+FROM cuda:9.0-cudnn7-devel-ubuntu16.04
 
 LABEL maintainer "Mark"
 
@@ -21,7 +22,7 @@ RUN pip3 --no-cache-dir install --upgrade \
 
 RUN pip3 --no-cache-dir install --upgrade \
     numpy scipy pygame matplotlib networkx dgl-cu90 pygsp pyflann3 \
-    requests tqdm argparse sklearn h5py vg seaborn
+    requests tqdm argparse sklearn h5py vg seaborn pandas pyntcloud
 #dgl-cu100
 
 #RUN pip3 install torch torchvision

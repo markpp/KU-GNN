@@ -1,0 +1,56 @@
+[
+    {
+        "arch": "NoSplit",
+        "data": "xyz",
+        "id": 0,
+        "lr": 0.005,
+        "n_neighbors": 10,
+        "net": "PointNet",
+        "share": 1.0
+    },
+    {
+        "arch": "NoSplit",
+        "data": "rgb",
+        "id": 1,
+        "lr": 0.005,
+        "n_neighbors": 10,
+        "net": "PointNet",
+        "share": 1.0
+    },
+    {
+        "arch": "NoSplit",
+        "data": "xyz",
+        "id": 2,
+        "lr": 0.005,
+        "n_neighbors": 10,
+        "net": "PointNet++",
+        "share": 1.0
+    },
+    {
+        "arch": "NoSplit",
+        "data": "rgb",
+        "id": 3,
+        "lr": 0.005,
+        "n_neighbors": 10,
+        "net": "PointNet++",
+        "share": 1.0
+    },
+    {
+        "arch": "NoSplit",
+        "data": "xyz",
+        "id": 4,
+        "lr": 0.005,
+        "n_neighbors": 10,
+        "net": "GNN",
+        "share": 1.0
+    },
+    {
+        "arch": "NoSplit",
+        "data": "rgb",
+        "id": 5,
+        "lr": 0.005,
+        "n_neighbors": 10,
+        "net": "GNN",
+        "share": 1.0
+    }
+]

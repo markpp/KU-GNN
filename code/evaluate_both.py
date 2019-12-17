@@ -50,15 +50,15 @@ def plot_dists(d0,d1,d2=None,labels=["Train","Val","Test"],folder='other',name='
 
     if name is 'pos_err':
         ax.set_xlabel('[m]')
-        ax.set_title('Position prediction errors')
+        ax.set_title('Distribution of errors in position predictions')
         #ax.set_xlim([0.0,0.4])
     elif name is 'ang_err':
         ax.set_xlabel('[deg]')
-        ax.set_title('Normal prediction errors')
+        ax.set_title('Distribution of errors in orientation predictions')
         #ax.set_xlim([0,20])
     else:
         ax.set_xlabel('[]')
-        ax.set_title('X compared to ground truth')
+        ax.set_title('Err compared to ground truth')
 
     plt.savefig('{}.png'.format(name))
     plt.clf()
@@ -120,22 +120,9 @@ def pointnet_vs_gnn(gt, pred_gnn, pred_pointnet):
     plot_dists(pd.DataFrame(gnn_dist,columns=['dp']), pd.DataFrame(pointnet_dist,columns=['dp']),labels=["GNN","PointNet"],name='pos_err')
     plot_dists(pd.DataFrame(gnn_ang[:,3],columns=['da']), pd.DataFrame(pointnet_ang[:,3],columns=['da']),labels=["GNN","PointNet"],name='ang_err')
 
-def compare_two_predictors(gt, pred_ref, pred_comp, ref_name='Single model', comp_name='Seperate models'):
-    print(pred_ref.shape)
-    ref_pos, ref_dist, ref_norm, ref_ang = evaluate_point_normals(gt, pred_ref)
-    print("ref: pos error mean {:.6f} std {:.6f}, ang error mean {:.6f} std {:.6f}".format(ref_dist.mean(),ref_dist.std(), ref_ang[:,3].mean(),ref_ang[:,3].std()))
-
-    print(pred_comp.shape)
-    comp_pos, comp_dist, comp_norm, comp_ang = evaluate_point_normals(gt, pred_comp)
-    print("comp: pos error mean {:.6f} std {:.6f}, ang error mean {:.6f} std {:.6f}".format(comp_dist.mean(),comp_dist.std(), comp_ang[:,3].mean(),comp_ang[:,3].std()))
-
-    plot_dists(pd.DataFrame(ref_dist,columns=['dp']), pd.DataFrame(comp_dist,columns=['dp']),labels=[ref_name,comp_name],name='pos_err')
-    plot_dists(pd.DataFrame(ref_ang[:,3],columns=['da']), pd.DataFrame(comp_ang[:,3],columns=['da']),labels=[ref_name,comp_name],name='ang_err')
-
 
 def pred_error(ref, pred):
-    print(ref.shape)
-    print(pred.shape)
+
     pos, dist, norm, ang = evaluate_point_normals(ref, pred)
     print("GT: pos error mean {:.6f} std {:.6f}, ang error mean {:.6f} std {:.6f}".format(dist.mean(),dist.std(), ang[:,3].mean(),ang[:,3].std()))
     return dist, ang
@@ -162,63 +149,92 @@ def find_n_best_and_worst():
     print(val_ang[b2w_idx[-3:]])
 
 
-#def process_list():
+def process_list(data_dir, dataset, folder_list):
+    print(dataset)
+    data = []
 
+    gt = np.load('{}/gt_{}.npy'.format(data_dir,dataset))
 
-def plot_err_vs_dataset(data, name="", result_dir=""):
-    plt.plot(data[:,0], data[:,1], marker='+')
-    plt.title('Error comparison {}'.format(name))
-    plt.xlabel('dataset')
-    plt.ylabel('Error (m)')
+    for folder in folder_list:
+        pred = np.load('{}/{}/pred_{}.npy'.format(data_dir,folder,dataset))
+        dist, ang = pred_error(gt,pred)
+        data.append([int(folder)//10,dist.mean(),ang[:,3].mean()])
+
+    return np.array(data)
+
+def plot_err_vs_num_samples(num_samples, err1, err2, name="", result_dir=""):
+    plt.plot(num_samples, err1, marker='+', label='PointNet')
+    plt.plot(num_samples, err2, marker='+', label='GNN')
+
+    plt.title('{}'.format(name))
+    plt.xlabel('Training samples (#)')
+    if 'ori' in name:
+        plt.ylabel('Error (°)')
+    else:
+        plt.ylabel('Error (m)')
 
     #plt.yscale('log')
     plt.grid()
-    plt.legend('datasets', loc='upper right')
-    plt.savefig(os.path.join(result_dir, 'err_vs_dataset.png'))
+    plt.legend(['PointNet','GNN'], loc='upper right')
+    plt.savefig(os.path.join(result_dir, '{}.png'.format(name)))
     plt.close()
 
 
+def plot_err_vs_dataset(num_samples, err1, err2, err3, name="", result_dir=""):
+    plt.plot(num_samples, err1, marker='+', label='train')
+    plt.plot(num_samples, err2, marker='+', label='val')
+    plt.plot(num_samples, err3, marker='+', label='test')
+
+    plt.title('{}'.format(name))
+    plt.xlabel('Training samples (#)')
+    if 'ori' in name:
+        plt.ylabel('Error (°)')
+    else:
+        plt.ylabel('Error (m)')
+
+    #plt.yscale('log')
+    plt.grid()
+    plt.legend(['Train','Val','Test'], loc='upper right')
+    plt.savefig(os.path.join(result_dir, '{}.png'.format(name)))
+    plt.close()
+
 if __name__ == '__main__':
     data_dir = 'output'
-    folder_list = ['255','510','1020','2040','4080','8160','16320']
-
-    # plot comparison
-    pred_pn = np.load('{}/{}/pred_{}_pn.npy'.format(data_dir,folder_list[-1],'test'))
-    pred_p_n = np.load('{}/{}/pred_{}.npy'.format(data_dir,folder_list[-1],'test'))
-    gt = np.load('{}/gt_{}.npy'.format(data_dir,'test'))
-    compare_two_predictors(gt,pred_pn,pred_p_n)
+    folder_list = ['255','510','1020','2040','4080','8160','16320'][1:]
 
     '''
-    # plot error for each dataset
-    data = []
-    for dataset in ['train','val','test'][2:]:
-        print(dataset)
-        gt = np.load('{}/gt_{}.npy'.format(data_dir,dataset))
-
-        for folder in folder_list:
-            pred = np.load('{}/{}/pred_{}.npy'.format(data_dir,folder,dataset))
-            dist, ang = pred_error(gt,pred)
-            data.append([int(folder),dist.mean(),ang[:,3].mean()])
-
-    plot_err_vs_dataset(np.array(data))
+    for dataset in ['train','val','test'][:2]:
+        pointnet_res = process_list('keras_pointnet/output', dataset, folder_list)
+        gnn_res = process_list('dgl_dynamic_graph_cnn/output', dataset, folder_list)
+        num_samples = gnn_res[:,0]
+        plot_err_vs_num_samples(num_samples,pointnet_res[:,1],gnn_res[:,1],name="pointnet_vs_gnn_{}_pos".format(dataset))
+        plot_err_vs_num_samples(num_samples,pointnet_res[:,2],gnn_res[:,2],name="pointnet_vs_gnn_{}_ori".format(dataset))
     '''
 
     '''
-    # plot error distribution
-    pred = np.load('{}/{}/pred_{}.npy'.format(data_dir,folder_list[-1],'test'))
-    gt = np.load('{}/gt_{}.npy'.format(data_dir,'test'))
-
-    dist, ang = pred_error(gt,pred)
-    plot_dist(pd.DataFrame(dist,columns=['dp']),name='{}/{}_pos_err'.format(data_dir,'test'))
-    plot_dist(pd.DataFrame(ang[:,3],columns=['da']),name='{}/{}_ang_err'.format(data_dir,'test'))
+    selection = ['keras_pointnet','dgl_dynamic_graph_cnn'][1]
+    res = []
+    for dataset in ['train','val','test'][:]:
+        res.append(process_list('{}/output'.format(selection), dataset, folder_list))
+    res = np.array(res)
+    num_samples = res[0,:,0]
+    plot_err_vs_dataset(num_samples,res[0,:,1],res[1,:,1],res[2,:,1],name="{}_train_val_test_pos".format(selection))
+    plot_err_vs_dataset(num_samples,res[0,:,2],res[1,:,2],res[2,:,2],name="{}_train_val_test_ori".format(selection))
     '''
+
+    #pred = np.load('{}/pred_{}.npy'.format(data_dir,dataset))
 
     #find_n_best_and_worst()
 
+    #dist, ang = pred_error(gt,pred)
+    #plot_dist(pd.DataFrame(dist,columns=['dp']),name='{}/{}_pos_err'.format(data_dir,dataset))
+    #plot_dist(pd.DataFrame(ang[:,3],columns=['da']),name='{}/{}_ang_err'.format(data_dir,dataset))
 
-    #pred_pointnet = np.load('data/pred_pointnet_test.npy')
 
-    #pointnet_vs_gnn(gt_test, pred_gnn, pred_pointnet)
+    pred_gnn = np.load('dgl_dynamic_graph_cnn/{}/{}/pred_{}.npy'.format(data_dir,folder_list[-1],'test'))
+    pred_pointnet = np.load('keras_pointnet/{}/{}/pred_{}.npy'.format(data_dir,folder_list[-1],'test'))
+    gt_test = np.load('keras_pointnet/{}/gt_{}.npy'.format(data_dir,'test'))
+    pointnet_vs_gnn(gt_test, pred_gnn, pred_pointnet)
 
     #annotation_error
     #pred_error(np.load('output/pred_gt0.npy'),np.load('output/pred_gt1.npy'))
