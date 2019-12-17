@@ -201,6 +201,24 @@ if TRAIN:
 
     plot_file.close()
 else:
+    '''
+    # extract weights
+    if args.load_model_path:
+        model.load_state_dict(torch.load(args.load_model_path))
+    
+    l1_w = model.l1.weight.detach().numpy()
+    l2_w = model.l2.weight.detach().numpy()
+    l3_w = model.l3.weight.detach().numpy()
+
+    print(l1_w.shape)
+    print(l2_w.shape)
+    print(l3_w.shape)
+    print(l3_w)
+    np.save("l1_w.npy",l1_w)
+    np.save("l2_w.npy",l2_w)
+    np.save("l3_w.npy",l3_w)
+
+    '''
     dev = torch.device("cpu")
     model = model.to(dev)
 
@@ -208,4 +226,5 @@ else:
 
     if args.load_model_path:
         model.load_state_dict(torch.load(args.load_model_path, map_location=dev))
+
     predict(model, dev)

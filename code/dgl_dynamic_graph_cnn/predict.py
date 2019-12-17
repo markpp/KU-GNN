@@ -41,6 +41,12 @@ if __name__ == '__main__':
     dev = torch.device("cpu")
 
     model_p = torch.load("models/model_p.pkl")
+
+
+    w = list(model_p.parameters())
+    print(w)
+
+    '''
     model_n = torch.load("models/model_n.pkl")
 
     model_p.eval()
@@ -62,3 +68,4 @@ if __name__ == '__main__':
     pred_gnn = np.concatenate((pred_p, pred_n), axis=1)
     print(pred_gnn.shape)
     np.save("pred_gnn.npy",pred_gnn)
+    '''

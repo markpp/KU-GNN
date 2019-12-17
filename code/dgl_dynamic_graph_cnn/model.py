@@ -110,3 +110,6 @@ class Model(nn.Module):
         elif self.rep == 'n':
             return n
         return p, n
+
+# for activations
+#https://blog.paperspace.com/pytorch-hooks-gradient-clipping-debugging/
