@@ -7,3 +7,7 @@
 *.pth
 *.pkl
 *.txt
+*.pth
+*.ply
+*.pickle
+*.h5

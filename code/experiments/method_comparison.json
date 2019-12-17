@@ -1,0 +1,26 @@
+[
+    {
+        "id": 0,
+        "lr": 0.005,
+        "n_neighbors": 10,
+        "net": "PointNet",
+        "rep": "p",
+        "share": 1.0
+    },
+    {
+        "id": 1,
+        "lr": 0.005,
+        "n_neighbors": 10,
+        "net": "PointNet++",
+        "rep": "p",
+        "share": 1.0
+    },
+    {
+        "id": 2,
+        "lr": 0.005,
+        "n_neighbors": 10,
+        "net": "GNN",
+        "rep": "p",
+        "share": 1.0
+    }
+]
