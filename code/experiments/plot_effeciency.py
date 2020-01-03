@@ -46,6 +46,7 @@ def efficiency(train_p, train_n, val_p, val_n, name):
 if __name__ == '__main__':
 
     experiment_name = 'efficiency'
+    config_name = 'gnn_ar_sh'
     iterations = list(range(2))
 
     df = pd.DataFrame()
@@ -57,25 +58,28 @@ if __name__ == '__main__':
     shares = []
 
     # load json
-    with open('{}.json'.format(experiment_name)) as f:
+    with open('{}.json'.format(config_name)) as f:
       confs = json.load(f)
       for conf in confs[:]:
 
         for iteration in iterations[:]:
-          experiment_dir = "{}/id-{}_it-{}".format(experiment_name,conf['id'],iteration)
+          experiment_dir = os.path.join('gnn',"ne-{}_sa-{}_sh-{}_da-{}_ar-{}_lw-{}_op-{}_lr-{}_nn-{}_it-{}"
+                                              .format(conf['ne'],conf['sa'],conf['sh'],conf['da'],conf['ar'],
+                                                      conf['lw'],conf['op'],conf['lr'],conf['nn'],iteration))
+
           train_p, train_n, val_p, val_n = read_results(os.path.join(experiment_dir,"err.txt"),mode=experiment_name)
           #print("best: val_p {}, val_n {}, share {}".format(val_p,val_n,conf['share']))
-          names.append(conf['net'])
+          names.append(conf['ne'])
           datasets.append('val')
           p_errs.append(val_p)
           n_errs.append(val_n)
-          shares.append(conf['share'])
+          shares.append(conf['sh'])
 
-          names.append(conf['net'])
+          names.append(conf['ne'])
           datasets.append('train')
           p_errs.append(train_p)
           n_errs.append(train_n)
-          shares.append(conf['share'])
+          shares.append(conf['sh'])
 
     #print(df.describe())
 

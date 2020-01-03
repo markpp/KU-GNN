@@ -34,7 +34,7 @@ def plot_dist(d0,folder='other',name='noname'):
         #ax.set_xlim([0,20])
     else:
         ax.set_xlabel('[]')
-        ax.set_title('X compared to ground truth')
+        ax.set_title('Predictions compared to ground truth')
 
     plt.savefig('{}.png'.format(name))
     plt.clf()
@@ -52,17 +52,17 @@ def plot_dists(d0,d1,d2=None,labels=["Train","Val","Test"],folder='other',name='
     ax.spines['left'].set_visible(False)
     ax.spines['top'].set_visible(False)
 
-    if name is 'pos_err':
+    if name == 'pos_err':
         ax.set_xlabel('[m]')
         ax.set_title('Difference in positions between ground-truth and prediction')
         #ax.set_xlim([0.0,0.4])
-    elif name is 'ang_err':
+    elif name == 'ang_err':
         ax.set_xlabel('[deg]')
         ax.set_title('Difference in normals between ground-truth and prediction')
         #ax.set_xlim([0,20])
     else:
         ax.set_xlabel('[]')
-        ax.set_title('X compared to ground truth')
+        ax.set_title('Predictions compared to ground truth')
 
     plt.savefig('{}.png'.format(name))
     plt.clf()
@@ -237,16 +237,16 @@ def plot_individual(experiment_name):
             dfs_dist.append(pd.DataFrame(dist,columns=['dp']))
             dfs_ang.append(pd.DataFrame(ang[:,3],columns=['da']))
 
-    plot_dists(dfs_dist[0],dfs_dist[1],dfs_dist[2],name='individual_dist_err')
-    plot_dists(dfs_ang[0],dfs_ang[1],dfs_ang[2],name='individual_ang_err')
+    plot_dists(dfs_dist[0],dfs_dist[1],dfs_dist[2],name='pos_err')
+    plot_dists(dfs_ang[0],dfs_ang[1],dfs_ang[2],name='ang_err')
 
     #plot_dists(pd.DataFrame(gnn_ang[:,3],columns=['da']), pd.DataFrame(pointnet_ang[:,3],columns=['da']),labels=["GNN","PointNet"],name='ang_err')
 
 
 if __name__ == '__main__':
 
-    plot_individual(experiment_name = 'efficiency')
-    #plot_overview(experiment_name = 'efficiency', iterations = list(range(2)))
+    #plot_individual(experiment_name = 'efficiency')
+    plot_overview(experiment_name = 'efficiency', iterations = list(range(2)))
     '''
     df = pd.read_pickle('eval.pkl')
     #df = df[df['dataset'].str.startswith('te')]

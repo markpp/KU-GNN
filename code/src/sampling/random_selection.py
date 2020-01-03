@@ -69,25 +69,25 @@ def plot_selection_map(data, label, info="{}/{}", x_dim=0, y_dim=1, filename="se
                        '3/4':'yellow',
                        '4/4':'orange'})
 
-    ax = sns.scatterplot(x=x_label, y=y_label, data=df, hue="label", hue_order=['1/4', '2/4', '3/4', '4/4'], palette=color_dict, legend="full")
-    ax.set(xlim=(-0.6, 0.6), ylim=(-0.6, 0.6))
+    ax = sns.scatterplot(x=x_label, y=y_label, data=df, hue="label", hue_order=['1/4', '2/4', '3/4', '4/4'], palette=color_dict, legend="full", size=1)
+    #ax.set(xlim=(-0.6, 0.6), ylim=(-0.6, 0.6))
     #ax.set(xlim=(-200.0, 200.0), ylim=(-200.0, 200.0))
 
 
-    plt.savefig('results/{}.png'.format(filename))
+    plt.savefig('{}.png'.format(filename))
     #plt.show()
 
 if __name__ == '__main__':
     enable_plot = 1
     enable_pca = 1
 
-    dir = "input/kin/ae_tf"
+    dir = "../../input/ct/ae"
     # load representations
-    zs = np.load("{}/train_zs.npy".format(dir))
+    zs = np.load("{}/zs_train.npy".format(dir))
 
     if enable_pca:
         file_dir = os.path.dirname(os.path.abspath(__file__))
-        pca_path = os.path.join(file_dir,"input/kin/ae_tf/pca.pickle")
+        pca_path = os.path.join(file_dir,"{}/pca.pickle".format(dir))
         if os.path.exists(pca_path):
             with open(pca_path, 'rb') as f:
                 pca = pickle.load(f, encoding='latin1')
@@ -99,10 +99,15 @@ if __name__ == '__main__':
                                 ['2/4']*int(0.25*len(zs)),
                                 ['3/4']*int(0.25*len(zs)),
                                 ['4/4']*int(0.25*len(zs))),axis=0)
+
+        print(zs.shape)
+        print(label.shape)
+
         plot_selection_map(zs, label, info="random sampling of four dataset extensions", filename="random_sampling")
         plt.close()
 
         D = pairwise_distances(zs, metric='euclidean')
         (perm, lambdas) = getGreedyPerm(D)
-        np.save("furthest_point.npy",perm)
+        np.save("{}/furthest_point.npy".format(dir),perm)
+
         plot_selection_map(zs[perm], label, info="random sampling of four dataset extensions", filename="furthest_sampling")
