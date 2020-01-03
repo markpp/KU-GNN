@@ -6,23 +6,20 @@ import math
 import numpy as np
 import pandas as pd
 
-def plot_loss(histories, name, key='loss'):
-    plt.figure(figsize=(8,4))
+def plot_loss(experiment_dir):
+    train_errs_p, train_errs_n = [], []
+    val_errs_p = []
+    val_errs_n = []
+    f = open(os.path.join(experiment_dir,"err.txt"), "r")
+    for line in f.readlines()[1:]:
+        train_err_p, train_err_n, val_err_p, val_err_n = line.rstrip().split(':')
+        train_errs_p.append(float(train_err_p))
+        train_errs_n.append(float(train_err_n))
+        val_errs_p.append(float(val_err_p))
+        val_errs_n.append(float(val_err_n))
 
-    for label, history in histories:
-        plt.plot(history.epoch, history.history['val_'+key], color='blue', label=label.title()+' Val')
-        plt.plot(history.epoch, history.history[key], color='green', label=label.title()+' Train')
-
-    plt.xlabel('Epochs')
-    plt.ylabel(key.replace('_',' ').title())
-    plt.legend()
-
-    plt.xlim([0,max(history.epoch)])
-    plt.ylim([0,0.1])
-    #plt.yscale('log')
-    plt.savefig('plots/pose_loss_{}.png'.format(name))
-    #plt.show()
-    plt.close()
+    train_val_err(train_errs_p, val_errs_p, backend='sns', path=os.path.join(experiment_dir,"err_p.png"))
+    train_val_err(train_errs_n, val_errs_n, backend='sns', path=os.path.join(experiment_dir,"err_n.png"))
 
 def train_val_err(train, val, step_size=5, backend='sns', path='err.png'):
     epochs = list(range(0,len(train)*step_size,step_size))

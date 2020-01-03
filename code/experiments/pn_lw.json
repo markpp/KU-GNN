@@ -1,0 +1,98 @@
+[
+    {
+        "ar": "NoSplit",
+        "da": "xyz",
+        "id": 0,
+        "lr": 0.005,
+        "lw": 0.5,
+        "ne": "PointNet",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "random",
+        "sh": 1.0
+    },
+    {
+        "ar": "NoSplit",
+        "da": "xyz",
+        "id": 1,
+        "lr": 0.005,
+        "lw": 0.75,
+        "ne": "PointNet",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "random",
+        "sh": 1.0
+    },
+    {
+        "ar": "NoSplit",
+        "da": "xyz",
+        "id": 2,
+        "lr": 0.005,
+        "lw": 0.8,
+        "ne": "PointNet",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "random",
+        "sh": 1.0
+    },
+    {
+        "ar": "NoSplit",
+        "da": "xyz",
+        "id": 3,
+        "lr": 0.005,
+        "lw": 0.9,
+        "ne": "PointNet",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "random",
+        "sh": 1.0
+    },
+    {
+        "ar": "NoSplit",
+        "da": "xyz",
+        "id": 4,
+        "lr": 0.005,
+        "lw": 0.95,
+        "ne": "PointNet",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "random",
+        "sh": 1.0
+    },
+    {
+        "ar": "NoSplit",
+        "da": "xyz",
+        "id": 5,
+        "lr": 0.005,
+        "lw": 0.98,
+        "ne": "PointNet",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "random",
+        "sh": 1.0
+    },
+    {
+        "ar": "NoSplit",
+        "da": "xyz",
+        "id": 6,
+        "lr": 0.005,
+        "lw": 0.99,
+        "ne": "PointNet",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "random",
+        "sh": 1.0
+    },
+    {
+        "ar": "NoSplit",
+        "da": "xyz",
+        "id": 7,
+        "lr": 0.005,
+        "lw": 0.995,
+        "ne": "PointNet",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "random",
+        "sh": 1.0
+    }
+]

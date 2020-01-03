@@ -1,0 +1,110 @@
+[
+    {
+        "ar": "FullSplit",
+        "da": "xyz",
+        "id": 0,
+        "lr": 0.005,
+        "lw": 0.98,
+        "ne": "PointNet",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "random",
+        "sh": 1.0
+    },
+    {
+        "ar": "HalfSplit",
+        "da": "xyz",
+        "id": 1,
+        "lr": 0.005,
+        "lw": 0.98,
+        "ne": "PointNet",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "random",
+        "sh": 1.0
+    },
+    {
+        "ar": "NoSplit",
+        "da": "xyz",
+        "id": 2,
+        "lr": 0.005,
+        "lw": 0.98,
+        "ne": "PointNet",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "random",
+        "sh": 1.0
+    },
+    {
+        "ar": "FullSplit",
+        "da": "xyz",
+        "id": 3,
+        "lr": 0.005,
+        "lw": 0.98,
+        "ne": "GNN",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "random",
+        "sh": 1.0
+    },
+    {
+        "ar": "HalfSplit",
+        "da": "xyz",
+        "id": 4,
+        "lr": 0.005,
+        "lw": 0.98,
+        "ne": "GNN",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "random",
+        "sh": 1.0
+    },
+    {
+        "ar": "NoSplit",
+        "da": "xyz",
+        "id": 5,
+        "lr": 0.005,
+        "lw": 0.98,
+        "ne": "GNN",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "random",
+        "sh": 1.0
+    },
+    {
+        "ar": "FullSplit",
+        "da": "xyz",
+        "id": 6,
+        "lr": 0.005,
+        "lw": 0.98,
+        "ne": "PointNet++",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "random",
+        "sh": 1.0
+    },
+    {
+        "ar": "HalfSplit",
+        "da": "xyz",
+        "id": 7,
+        "lr": 0.005,
+        "lw": 0.98,
+        "ne": "PointNet++",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "random",
+        "sh": 1.0
+    },
+    {
+        "ar": "NoSplit",
+        "da": "xyz",
+        "id": 8,
+        "lr": 0.005,
+        "lw": 0.98,
+        "ne": "PointNet++",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "random",
+        "sh": 1.0
+    }
+]

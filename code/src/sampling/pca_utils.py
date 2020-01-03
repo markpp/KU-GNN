@@ -19,7 +19,7 @@ class principal_component_analysis:
             print("pca_transform: {} does not exist yet".format(self.transformer_path))
 
     def fit_pca(self, X):
-        self.pca = PCA(n_components=6)
+        self.pca = PCA(n_components=12)
         self.transform = self.pca.fit(X)
         with open(self.transformer_path, 'wb') as f:
             pickle.dump(self.transform, f, pickle.HIGHEST_PROTOCOL)
@@ -47,12 +47,14 @@ if __name__ == '__main__':
     # construct the argument parser and parse the arguments
     ap = argparse.ArgumentParser()
     ap.add_argument("-n", "--npy", type=str,
-                    default="output/train_z.npy", help="path to .npy with z")
+                    default="zs_train.npy", help="path to .npy with z")
     args = vars(ap.parse_args())
 
     reload = 1
 
-    pca = principal_component_analysis("input/kin/ae_tf/pca.pickle")
+    dir = "../../input/ct/ae"
+
+    pca = principal_component_analysis("{}/pca.pickle".format(dir))
 
     if reload:
         z = np.load(args['npy'])

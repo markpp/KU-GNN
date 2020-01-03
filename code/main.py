@@ -1,119 +1,190 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
-from torch.utils.data import DataLoader
-from optimizer import Lookahead, RAdam
 
-#import torch.onnx
-#from torch.utils.tensorboard import SummaryWriter
-
-from earnet import EarNet
-from model import Model
-from dgl.data.utils import download, get_download_dir
-
-from functools import partial
-import tqdm
-import urllib
 import os
 import argparse
 import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from pygsp import graphs, filters, plotting, utils
-from pygsp.graphs import Graph
-import networkx as nx
-import dgl
-import random
+import json
+
+from src.common.plot import plot_loss
+from src.common.models import NoSplit, HalfSplit, FullSplit
+from src.common.optimizer import Lookahead, RAdam, Ralamb
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--output-path', type=str, default='')
+parser.add_argument('--num-epochs', type=int, default=201)
+parser.add_argument('--batch-size', type=int, default=32)
+args = parser.parse_args()
+
+local_path = args.output_path or os.path.join(os.getcwd(), "experiments/gnn")
+num_epochs = args.num_epochs
+batch_size = args.batch_size
+
+def train(model, opt, dev, crit, X, Y, scheduler, alpha=0.95):
+    scheduler.step()
+    model.train()
+    total_loss = 0
+    num_batches = 0
+
+    permutation = np.random.permutation(X.shape[0])
+    for i in range(0,X.shape[0], batch_size):
+        indices = permutation[i:i+batch_size]
+        data, label = X[indices].to(dev), Y[indices].to(dev)
+
+        p, _, n, _ = model(data)
+        p_loss = crit(p, label[:,:3])
+        n_loss = crit(n, label[:,3:])
+        loss = alpha*p_loss + (1-alpha)*n_loss
+
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+
+        total_loss += loss.item()
+        num_batches += 1
+        epoch_loss = total_loss / num_batches
+
+    #for param_group in opt.param_groups:
+        #lr = param_group['lr']
+
+    return epoch_loss
+
+def evaluate(model, dev, crit, X, Y):
+    model.eval()
+    p_total_error = 0
+    n_total_error = 0
+    num_batches = 0
+
+    permutation = np.random.permutation(X.shape[0])
+    for i in range(0,X.shape[0], batch_size):
+        indices = permutation[i:i+batch_size]
+        data, label = X[indices].to(dev), Y[indices].to(dev)
+
+        p, _, n, _ = model(data)
+        p_err = crit(p, label[:,:3])
+        n_err = crit(n, label[:,3:])
+
+        num_batches += 1
+
+        p_total_error += p_err
+        p_epoch_error = p_total_error / num_batches
+
+        n_total_error += n_err
+        n_epoch_error = n_total_error / num_batches
+
+    return p_epoch_error, n_epoch_error
 
 
-def sample_n_points(points, n_points=1024):
-    candidate_ids = [i for i in range(points.shape[0])]
-    sel = []
-    for _ in range(n_points):
-        # select idx for closest point and add to id_selections
-        idx = random.randint(0,len(candidate_ids)-1)
-        sel.append(candidate_ids[idx])
-        # remove that idx from point_idx_options
-        del candidate_ids[idx]
-    return points[sel]
+def train_loop(conf, dir, dev, train_X, train_Y, val_X, val_Y):
+    print("Training {}, with architecture {}".format(conf['ne'],conf['ar']))
 
-def plot_points_with_arrow(x, y):
-  p_cloud = x
-  c_cloud = np.full((len(p_cloud),3),[1, 0.7, 0.75]) # fixed color
+    dims = 3 if conf['da'] == "xyz" else 6
+    if conf['ar'] == 'FullSplit':
+        model = FullSplit(conf['ne'], input_dims=dims)
+    elif conf['ar'] == 'HalfSplit':
+        model = HalfSplit(conf['ne'], input_dims=dims)
+    else:
+        model = NoSplit(conf['ne'], input_dims=dims)
 
-  p0, nx = y[:3], y[3:]
-  nz = np.cross(nx,[0,1,0])
-  ny = np.cross(nz,nx)
+    model = model.to(dev)
 
-  from plt_viewer import show_points
-  show_points(p_cloud,c_cloud,p0=p0,nx=nx,ny=ny,nz=nz)
+    if conf['op'] == 'ranger':
+        opt = Lookahead(base_optimizer=RAdam(model.parameters(), lr=conf['lr']),k=5,alpha=0.5)
+    elif conf['op'] == 'ralamb':
+        opt = Lookahead(base_optimizer=Ralamb(model.parameters(), lr=conf['lr']),k=5,alpha=0.5)
+    elif conf['op'] == 'adam':
+        opt = optim.Adam(model.parameters(), lr=conf['lr'], weight_decay=1e-4)
+    else:
+        opt = optim.SGD(model.parameters(), lr=conf['lr'], momentum=0.9, weight_decay=1e-4)
 
-def plot_graph(G):
-  from pygsp import plotting
-  #plotting.plot(G,show_edges=True,vertex_size=30)
-  plotting.plot(G,show_edges=True,vertex_size=30,backend='pyqtgraph')
+    #scheduler = optim.lr_scheduler.CosineAnnealingLR(opt, (train_X).shape[0], eta_min=conf['lr']*0.01)
+    scheduler = optim.lr_scheduler.MultiStepLR(opt, milestones=[int(num_epochs*0.65),int(num_epochs*0.85)], gamma=0.05)
 
-  plt.axis('off')
-  plt.show()
+    plot_file = open("{}/err.txt".format(dir),'w')
+    plot_file.write("p_train_err:n_train_err:p_val_err:n_val_err\n")
+
+    p_best_val_err = 999.9
+    n_best_val_err = 999.9
+
+    train_crit = nn.MSELoss()
+    eval_crit = nn.L1Loss()
+    for epoch in range(num_epochs):
+        train_loss = train(model, opt, dev, train_crit, train_X, train_Y, scheduler, conf['lw'])
+        print('Epoch #{}, training loss {:.5f}'.format(epoch,train_loss))
+        if epoch % 5 == 0:
+            with torch.no_grad():
+                p_train_err, n_train_err = evaluate(model, dev, eval_crit, train_X, train_Y)
+                p_val_err, n_val_err = evaluate(model, dev, eval_crit, val_X, val_Y)
+                #val_err = p_val_err + n_val_err
+                #train_err = p_train_err + n_train_err
+                plot_file.write("{:.5f}:{:.5f}:{:.5f}:{:.5f}\n".format(p_train_err, n_train_err, p_val_err, n_val_err))
+
+                #if val_err < best_val_err:
+                if p_val_err < p_best_val_err and n_val_err < n_best_val_err:
+                    p_best_val_err, n_best_val_err = p_val_err, n_val_err
+                    #torch.save(model.state_dict(),'{}/model.pth'.format(dir))
+                    torch.save(model,'{}/best_model.pkl'.format(dir))
+                    print('Winner!')
+                print('Epoch #{}. Train err: p: {:.5f}, n: {:.5f}'.format(epoch, p_train_err, n_train_err))
+                print('Validation err: p: {:.5f}(best: {:.5f}), n: {:.5f}(best: {:.5f})'.format(p_val_err, p_best_val_err, n_val_err, n_best_val_err))
+
+    torch.save(model,'{}/final_model.pkl'.format(dir))
+    plot_file.close()
+
 
 if __name__ == '__main__':
-    rep_selection = ['p','n','pn'][1]
+    dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    with open('/home/datasets/train_docker.txt') as f:
-        num_train = len(f.read().splitlines())
+    # load data #
+    data_source = "kin"
+    val_X = np.load('{}/{}/new/{}_x_1024_ra.npy'.format("input",data_source,"val"),allow_pickle=True).astype('float32')
+    val_Y = np.load('{}/{}/new/{}_y.npy'.format("input",data_source,"val"),allow_pickle=True)[:,:].astype('float32')
 
-    variables = [num_train//64, num_train//32, num_train//16, num_train//8, num_train//4, num_train//2, num_train][:2]
-    print("variables: {}".format(variables))
+    # load parameters
+    experiment_name = 'all_sa'
+    iterations = list(range(10))
+    with open('experiments/{}.json'.format(experiment_name)) as f:
+        confs = json.load(f)
+        for iteration in iterations[:]:
+            for conf_idx, conf in enumerate(confs[:]):
+                print("ITERATION {}, CONF IDX {}".format(iteration,conf_idx))
+                print(conf)
+                experiment_dir = os.path.join(local_path,"ne-{}_sa-{}_sh-{}_da-{}_ar-{}_lw-{}_op-{}_lr-{}_nn-{}_it-{}"
+                                              .format(conf['ne'],conf['sa'],conf['sh'],conf['da'],conf['ar'],
+                                                      conf['lw'],conf['op'],conf['lr'],conf['nn'],iteration))
+                if not os.path.exists(experiment_dir):
+                    os.makedirs(experiment_dir)
+                # check if experiment has been done before
+                if os.path.exists(os.path.join(experiment_dir,"err_p.png")):
+                    print("ALREADY DONE: {}".format(experiment_dir))
+                    continue
 
-    dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")##
+                train_X = np.load('{}/{}/new/{}_x_1024_ra.npy'.format("input",data_source,"train"),allow_pickle=True).astype('float32')
+                train_Y = np.load('{}/{}/new/{}_y.npy'.format("input",data_source,"train"),allow_pickle=True)[:,:].astype('float32')
 
-    modelnet = EarNet(path='/home/datasets')
-    val_loader = TestDataLoader(modelnet.val())
-    test_loader = TestDataLoader(modelnet.test())
+                if conf['sa'] == "furthest":
+                    print("using furthest sampling")
+                    perm = np.load('{}/{}/new/ae/furthest_point.npy'.format("input",data_source))
+                    train_X, train_Y = train_X[perm], train_Y[perm]
 
-    for var in variables:
-        print(var)
-        train_loader = TrainDataLoader(modelnet.train(split=var))
+                #print("{}, {}, {}, {}".format(val_X.shape, val_Y.shape, train_X.shape, train_Y.shape))
 
-        model = Model(10, [64, 64, 128, 256], [512, 512, 256], output_dims=3, rep=rep_selection)
-        model = model.to(dev)
+                # train #
+                if conf['da'] == "xyz":
+                    train_x, val_x = torch.from_numpy(train_X[:,:,:3]), torch.from_numpy(val_X[:,:,:3])
+                elif conf['da'] == "rgb":
+                    indices = [0,1,2,6,7,8]
+                    train_x, val_x = torch.from_numpy(train_X[:,:,indices]), torch.from_numpy(val_X[:,:,indices])
+                    #train_x[:,:,3:], val_x[:,:,3:] = train_x[:,:,3:]/255.0, val_x[:,:,3:]/255.0
+                elif conf['da'] == "nxyz":
+                    train_x, val_x = torch.from_numpy(train_X[:,:,:6]), torch.from_numpy(val_X[:,:,:6])
 
-        opt = Lookahead(base_optimizer=RAdam(model.parameters(), lr=0.01),k=5,alpha=0.5)
-        #opt = optim.SGD(model.parameters(), lr=0.01, momentum=0.9, weight_decay=1e-4)
-        #scheduler = optim.lr_scheduler.CosineAnnealingLR(opt, args.num_epochs, eta_min=0.0001)
+                print("# training samples {}".format(int(len(train_x)*conf['sh'])))
+                train_x, train_y = train_x[:int(len(train_x)*conf['sh'])], torch.from_numpy(train_Y[:int(len(train_Y)*conf['sh'])]),
+                val_x, val_y = val_x[:int(len(val_x))], torch.from_numpy(val_Y[:int(len(val_Y))])
 
-        best_val_err = 999.9
-        best_test_err = 999.9
+                train_loop(conf, experiment_dir, dev, train_x, train_y, val_x, val_y)
 
-        experiment_dir = os.path.join(local_path,"{}".format(var))
-        if not os.path.exists(experiment_dir):
-            os.makedirs(experiment_dir)
-
-        plot_file = open("{}/err_{}.txt".format(experiment_dir,rep_selection),'w')
-        plot_file.write("val_err:test_err\n")
-
-  for idx in range(2,4):
-    x = sample_n_points(X[idx],n_points=256*4)
-    #plot_points_with_arrow(x, Y[idx])
-
-    pygsp_G = graphs.NNGraph(x,use_flann=True, center=True, k=8)
-    plot_graph(pygsp_G)
-
-    '''
-    #g_dgl = dgl.DGLGraph(G)
-    nx_G = Graph.to_networkx(pygsp_G)
-
-    fig, ax = plt.subplots()
-    #nx.draw(g_dgl.to_networkx(), ax=ax)
-    nx.draw_networkx(nx_G)
-    #ax.set_title('Class: {:d}'.format(0))
-    # Hide grid lines
-    ax.grid(False)
-
-    # Hide axes ticks
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_zticks([])
-    plt.show()
-    '''
+                # plot #
+                plot_loss(experiment_dir)

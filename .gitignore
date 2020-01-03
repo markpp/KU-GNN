@@ -11,3 +11,5 @@
 *.ply
 *.pickle
 *.h5
+
+*/input

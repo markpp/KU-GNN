@@ -59,7 +59,7 @@ if __name__ == '__main__':
     # load json
     with open('{}.json'.format(experiment_name)) as f:
       confs = json.load(f)
-      for conf in confs[:]:
+      for conf in confs[:8]:
 
         for iteration in iterations[:]:
           experiment_dir = "{}/id-{}_it-{}".format(experiment_name,conf['id'],iteration)

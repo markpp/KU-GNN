@@ -2,8 +2,33 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from dgl.nn.pytorch import KNNGraph, EdgeConv
-from pointnet2_utils import PointNetSetAbstraction
+from src.common.pointnet2_utils import PointNetSetAbstraction
 #https://github.com/yanx27/Pointnet_Pointnet2_pytorch
+
+
+class InSplit(nn.Module):
+    def __init__(self, type="PointNet", input_dims=3):
+        super(InSplit, self).__init__()
+        if type == "PointNet":
+            self.p_extractor = PointNet(input_dims=input_dims)
+            self.n_extractor = PointNet(input_dims=input_dims)
+
+        elif type == "PointNet++":
+            self.p_extractor = PointNet2(input_dims=input_dims)
+            self.n_extractor = PointNet2(input_dims=input_dims)
+
+        elif type == "GNN": # broken: Expect number of features to match number of nodes
+            self.p_extractor = GNN(input_dims=input_dims)
+            self.n_extractor = GNN(input_dims=input_dims)
+
+        self.pn_predictor = PoseNet(input_dims=2048,output_dims=6)
+
+    def forward(self, x):
+        feat_p = self.p_extractor(x[:,:,:3])
+        feat_n = self.n_extractor(x[:,:,3:])
+        feat_pn = torch.cat([feat_p, feat_n], 1)
+        pred_pn = self.pn_predictor(feat_pn)
+        return pred_pn[:,:3], feat_p, pred_pn[:,3:], feat_n
 
 
 class NoSplit(nn.Module):
@@ -45,9 +70,9 @@ class HalfSplit(nn.Module):
         return pred_pn[:,:3], feat_p, pred_pn[:,3:], feat_n
 
 
-class CompleteSplit(nn.Module):
+class FullSplit(nn.Module):
     def __init__(self, type="PointNet", input_dims=3):
-        super(CompleteSplit, self).__init__()
+        super(FullSplit, self).__init__()
         if type == "PointNet":
             self.p_extractor = PointNet(input_dims=input_dims)
             self.n_extractor = PointNet(input_dims=input_dims)
@@ -84,6 +109,7 @@ class PoseNet(nn.Module):
         x = self.fc3(x)
         return x
 
+
 class PointNet(nn.Module):
     def __init__(self, input_dims=3, output_dims=3):
         super(PointNet, self).__init__()
@@ -103,15 +129,16 @@ class PointNet(nn.Module):
         feat = x.view(-1, 1024)
         return feat
 
+
 class PointNet2(nn.Module):
-    def __init__(self, input_dims=3, output_dims=3):
+    def __init__(self, input_dims=3, output_dims=3, radii=[0.03,0.06]):
         super(PointNet2, self).__init__()
         if input_dims > 3:
             self.extra_channels = True
         else:
             self.extra_channels = False
-        self.sa1 = PointNetSetAbstraction(npoint=512, radius=0.2, nsample=32, in_channel=input_dims, mlp=[64, 64, 128], group_all=False)
-        self.sa2 = PointNetSetAbstraction(npoint=128, radius=0.4, nsample=64, in_channel=128 + 3, mlp=[128, 128, 256], group_all=False)
+        self.sa1 = PointNetSetAbstraction(npoint=512, radius=radii[0], nsample=32, in_channel=input_dims, mlp=[64, 64, 128], group_all=False)
+        self.sa2 = PointNetSetAbstraction(npoint=128, radius=radii[1], nsample=64, in_channel=128 + 3, mlp=[128, 128, 256], group_all=False)
         self.sa3 = PointNetSetAbstraction(npoint=None, radius=None, nsample=None, in_channel=256 + 3, mlp=[256, 512, 1024], group_all=True)
 
     def forward(self, x):
@@ -128,21 +155,19 @@ class PointNet2(nn.Module):
         feat = l3_points.view(B, 1024)
         return feat
 
+
 class GNN(nn.Module):
     def __init__(self, k = 10, feature_dims = [64, 64, 128, 256], emb_dims = [512, 512, 256],
                  input_dims=3, output_dims=1024):
         super(GNN, self).__init__()
-        print(input_dims)
         self.nng = KNNGraph(k)
         self.conv = nn.ModuleList()
-
         self.num_layers = len(feature_dims)
         for i in range(self.num_layers):
             self.conv.append(EdgeConv(
                 feature_dims[i - 1] if i > 0 else input_dims,
                 feature_dims[i],
                 batch_norm=True))
-
         self.proj = nn.Linear(sum(feature_dims), emb_dims[0])
 
     def forward(self, x):

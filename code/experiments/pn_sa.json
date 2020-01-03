@@ -1,0 +1,122 @@
+[
+    {
+        "ar": "NoSplit",
+        "da": "xyz",
+        "id": 0,
+        "lr": 0.005,
+        "lw": 0.98,
+        "ne": "PointNet",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "random",
+        "sh": 0.1
+    },
+    {
+        "ar": "NoSplit",
+        "da": "xyz",
+        "id": 1,
+        "lr": 0.005,
+        "lw": 0.98,
+        "ne": "PointNet",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "random",
+        "sh": 0.25
+    },
+    {
+        "ar": "NoSplit",
+        "da": "xyz",
+        "id": 2,
+        "lr": 0.005,
+        "lw": 0.98,
+        "ne": "PointNet",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "random",
+        "sh": 0.5
+    },
+    {
+        "ar": "NoSplit",
+        "da": "xyz",
+        "id": 3,
+        "lr": 0.005,
+        "lw": 0.98,
+        "ne": "PointNet",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "random",
+        "sh": 0.75
+    },
+    {
+        "ar": "NoSplit",
+        "da": "xyz",
+        "id": 4,
+        "lr": 0.005,
+        "lw": 0.98,
+        "ne": "PointNet",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "random",
+        "sh": 1.0
+    },
+    {
+        "ar": "NoSplit",
+        "da": "xyz",
+        "id": 5,
+        "lr": 0.005,
+        "lw": 0.98,
+        "ne": "PointNet",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "furthest",
+        "sh": 0.1
+    },
+    {
+        "ar": "NoSplit",
+        "da": "xyz",
+        "id": 6,
+        "lr": 0.005,
+        "lw": 0.98,
+        "ne": "PointNet",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "furthest",
+        "sh": 0.25
+    },
+    {
+        "ar": "NoSplit",
+        "da": "xyz",
+        "id": 7,
+        "lr": 0.005,
+        "lw": 0.98,
+        "ne": "PointNet",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "furthest",
+        "sh": 0.5
+    },
+    {
+        "ar": "NoSplit",
+        "da": "xyz",
+        "id": 8,
+        "lr": 0.005,
+        "lw": 0.98,
+        "ne": "PointNet",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "furthest",
+        "sh": 0.75
+    },
+    {
+        "ar": "NoSplit",
+        "da": "xyz",
+        "id": 9,
+        "lr": 0.005,
+        "lw": 0.98,
+        "ne": "PointNet",
+        "nn": 10,
+        "op": "ranger",
+        "sa": "furthest",
+        "sh": 1.0
+    }
+]
