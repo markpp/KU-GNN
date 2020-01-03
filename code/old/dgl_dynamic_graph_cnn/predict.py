@@ -57,6 +57,14 @@ def print_model_info(model):
 
 if __name__ == '__main__':
 
+    model_p = torch.load("models/model_p.pkl")
+
+
+    w = list(model_p.parameters())
+    print(w)
+
+    '''
+    model_n = torch.load("models/model_n.pkl")
 
     rep_selection = ['p_n','pn'][1]
 
@@ -124,4 +132,7 @@ if __name__ == '__main__':
                 pred_gnn = np.append(pred_gnn, tmp_pred, axis=0)
                 print(pred_gnn.shape)
 
-            np.save("{}/{}/pred_{}_{}.npy".format(model_dir,folder,dataset,rep_selection),pred_gnn)
+    pred_gnn = np.concatenate((pred_p, pred_n), axis=1)
+    print(pred_gnn.shape)
+    np.save("pred_gnn.npy",pred_gnn)
+    '''
