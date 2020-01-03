@@ -136,17 +136,17 @@ if __name__ == '__main__':
     dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # load data #
-    data_source = "kin"
+    data_source = "ct"
     val_X = np.load('{}/{}/{}_x_1024.npy'.format("input",data_source,"val"),allow_pickle=True)
     val_Y = np.load('{}/{}/{}_y.npy'.format("input",data_source,"val"),allow_pickle=True)[:,:].astype('float32')
 
 
     # load parameters
-    experiment_name = 'sampling'
+    experiment_name = 'ct_sampling'
     iterations = list(range(8))
     with open('experiments/{}.json'.format(experiment_name)) as f:
       confs = json.load(f)
-      for iteration in iterations[8:]:
+      for iteration in iterations[:]:
           print("iteration {}".format(iteration))
           for conf in confs[:]:
             print(conf)

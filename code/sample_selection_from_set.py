@@ -47,11 +47,10 @@ def plot_selection_map(data, label, info="{}/{}", x_dim=0, y_dim=1, filename="se
 
     plt.title(info)
 
-    color_dict = dict({'known':'blue',
-                       'select':'green',
+    color_dict = dict({'select':'green',
                        'ignore': 'orange'})
 
-    ax = sns.scatterplot(x=x_label, y=y_label, data=df, hue="label", hue_order=['known', 'select', 'ignore'], palette=color_dict, legend="full")
+    ax = sns.scatterplot(x=x_label, y=y_label, data=df, hue="label", hue_order=['ignore', 'select'], palette=color_dict, legend="full")
     #ax.set(xlim=(-4.0, 4.0), ylim=(-4.0, 4.0))
     #ax.set(xlim=(-200.0, 200.0), ylim=(-200.0, 200.0))
 
@@ -59,11 +58,29 @@ def plot_selection_map(data, label, info="{}/{}", x_dim=0, y_dim=1, filename="se
     plt.savefig('results/{}.png'.format(filename))
     #plt.show()
 
+
+# select "sample_size" ids, by finding "sample_size" clusters in latent space, from "sample_ids"
+def cluster_sampling(X, sample_size):
+    #sample_ids = [i for i in range(X.shape[0])]
+
+    selection = []
+    from sklearn.cluster import AgglomerativeClustering
+    clustering = AgglomerativeClustering(n_clusters=sample_size, linkage="ward").fit(X)
+    #print("children: {}".format(len(clustering.children_)))
+    #print(clustering.labels_)
+    labels = clustering.labels_
+    for i in range(sample_size):
+        #print(np.where(labels == 0))
+        matches = np.where(labels == i)[0]
+        selection.append(matches[random.randint(0,len(matches)-1)])
+    return selection, labels
+
+
 if __name__ == '__main__':
     enable_pca = 1
     enable_plot = 1
 
-    dir = "input/kin/ae_tf"
+    dir = "input/ct/ae_tf"
     # load representations
     zs = np.load("{}/train_zs.npy".format(dir))
     #train_z = zs[:int(0.25*len(zs))]
@@ -71,7 +88,7 @@ if __name__ == '__main__':
 
     if enable_pca:
         file_dir = os.path.dirname(os.path.abspath(__file__))
-        pca_path = os.path.join(file_dir,"input/kin/ae_tf/pca.pickle")
+        pca_path = os.path.join(file_dir,"{}/pca.pickle".format(dir))
         if os.path.exists(pca_path):
             with open(pca_path, 'rb') as f:
                 pca = pickle.load(f, encoding='latin1')
@@ -81,11 +98,17 @@ if __name__ == '__main__':
     print(zs[:2])
 
 
-    #selection = incremental_farthest_search(zs,len(zs))
+    for frac in [int(0.25*len(zs)), int(0.5*len(zs)), int(0.75*len(zs)), int(1.0*len(zs))]:
+        
+        selection = cluster_sampling(zs,frac)
 
+        label = np.concatenate((['selection']*frac,
+                                ['all']*(len(zs)+1 - frac)),axis=0)
 
-    label = np.concatenate((['1/4']*int(0.25*len(zs)),
-                            ['2/4']*int(0.25*len(zs)),
-                            ['3/4']*int(0.25*len(zs)),
-                            ['4/4']*int(0.25*len(zs))),axis=0)
-    plot_selection_map(zs, label, info="random sampling of four dataset extensions", filename="furthest_sampling")
+        print(zs[selection][:2])
+
+        more_than_all_samples = np.concatenate((zs[selection],zs),axis=0)
+        plot_selection_map(more_than_all_samples, label, info="cluster sampling of four dataset extensions", filename="cluster_sampling_{}".format(frac))
+        plt.close()
+
+    

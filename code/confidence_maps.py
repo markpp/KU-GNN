@@ -112,14 +112,14 @@ def plot_confidence_map(test, reference, pred_err, x_dim=0, y_dim=1, filename="c
 if __name__ == '__main__':
     enable_pca = 1
     enable_plot = 1
-
+    input_dir = 'input/kin/ae_tf'
     # load representations
-    train_z = np.load("output/train_z.npy")
-    val_z = np.load("output/val_z.npy")
+    train_z = np.load("{}/zs_train.npy".format(input_dir))
+    val_z = np.load("{}/zs_val.npy".format(input_dir))
 
     if enable_pca:
         file_dir = os.path.dirname(os.path.abspath(__file__))
-        pca_path = os.path.join(file_dir,"models/pca.pickle")
+        pca_path = os.path.join(file_dir,"{}/pca.pickle".format(input_dir))
         if os.path.exists(pca_path):
             with open(pca_path, 'rb') as f:
                 pca = pickle.load(f, encoding='latin1')
@@ -134,8 +134,8 @@ if __name__ == '__main__':
 
     for loss_selection in ["rec", "p0", "norm"][:1]:
         # load error measures
-        ref_loss = np.load("output/train_{}_loss.npy".format(loss_selection))
-        new_loss = np.load("output/val_{}_loss.npy".format(loss_selection))
+        ref_loss = np.load("{}/train_{}_loss.npy".format(input_dir,loss_selection))
+        new_loss = np.load("{}/val_{}_loss.npy".format(input_dir,loss_selection))
 
         print("best")
         print(b2w_idx[:3])
@@ -151,18 +151,20 @@ if __name__ == '__main__':
         reference_error = np.array([np.mean(ref_loss)]*new_loss.shape[0]) #mean vs median
         neighbor_error = ref_loss[best_matches]
 
-        err_pred_err = np.absolute(new_loss - reference_error)
-        print("Error prediction error using ref mean: {}".format(np.mean(err_pred_err)))
+        mean_err_vs_pred_err = np.absolute(new_loss - reference_error)
+        print("Error prediction error using ref mean: {}".format(np.mean(mean_err_vs_pred_err)))
 
-        err_pred_err = np.absolute(new_loss - neighbor_error)
-        print("Error prediction error using closest neighbor: {}".format(np.mean(err_pred_err)))
+        neighbor_err_vs_pred_err = np.absolute(new_loss - neighbor_error)
+        print("Error prediction error using closest neighbor: {}".format(np.mean(neighbor_err_vs_pred_err)))
 
 
         if enable_plot:
             plt.cla()
             plot_dist_vs_error(best_dists[b2w_idx], new_loss[b2w_idx], filename="dist_vs_err_{}".format(loss_selection))
             plt.cla()
-            plot_error_pred_error(best_dists[b2w_idx], err_pred_err, filename="error_pred_error_{}".format(loss_selection))
+            plot_error_pred_error(best_dists[b2w_idx], mean_err_vs_pred_err, filename="mean_err_vs_pred_err_{}".format(loss_selection))
+            plt.cla()
+            plot_error_pred_error(best_dists[b2w_idx], neighbor_err_vs_pred_err, filename="neighbor_err_vs_pred_err_{}".format(loss_selection))
             plt.cla()
             plot_density_map(val_z, train_z, filename="density_{}".format(loss_selection))
             plt.cla()

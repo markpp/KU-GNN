@@ -45,8 +45,8 @@ def efficiency(train_p, train_n, val_p, val_n, name):
 
 if __name__ == '__main__':
 
-    experiment_name = 'sampling'
-    iterations = list(range(2))
+    experiment_name = 'ct_sampling'
+    iterations = list(range(5))
 
     df = pd.DataFrame()
 

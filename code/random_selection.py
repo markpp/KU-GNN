@@ -81,13 +81,13 @@ if __name__ == '__main__':
     enable_plot = 1
     enable_pca = 1
 
-    dir = "input/kin/ae_tf"
+    dir = "input/ct/ae_tf"
     # load representations
     zs = np.load("{}/train_zs.npy".format(dir))
 
     if enable_pca:
         file_dir = os.path.dirname(os.path.abspath(__file__))
-        pca_path = os.path.join(file_dir,"input/kin/ae_tf/pca.pickle")
+        pca_path = os.path.join(file_dir,"{}/pca.pickle".format(dir))
         if os.path.exists(pca_path):
             with open(pca_path, 'rb') as f:
                 pca = pickle.load(f, encoding='latin1')
@@ -95,14 +95,17 @@ if __name__ == '__main__':
             print("sample_selection: {} does not exist yet".format(pca_path))
         zs = pca.transform(zs)
 
+        len_last = (len(zs)+1) - int(3*0.25*len(zs))
         label = np.concatenate((['1/4']*int(0.25*len(zs)),
                                 ['2/4']*int(0.25*len(zs)),
                                 ['3/4']*int(0.25*len(zs)),
-                                ['4/4']*int(0.25*len(zs))),axis=0)
+                                ['4/4']*len_last),axis=0)
+
         plot_selection_map(zs, label, info="random sampling of four dataset extensions", filename="random_sampling")
         plt.close()
 
+        # futhest point sampling
         D = pairwise_distances(zs, metric='euclidean')
         (perm, lambdas) = getGreedyPerm(D)
-        np.save("furthest_point.npy",perm)
-        plot_selection_map(zs[perm], label, info="random sampling of four dataset extensions", filename="furthest_sampling")
+        np.save("{}/furthest_point.npy".format(dir),perm)
+        plot_selection_map(zs[perm], label, info="furthest point sampling of four dataset extensions", filename="furthest_sampling")
