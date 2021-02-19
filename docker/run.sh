@@ -1,6 +1,6 @@
 #!/bin/bash
 xhost +local:
-nvidia-docker run -it --net=host \
+docker run -it --gpus all --net=host \
   -e QT_GRAPHICSSYSTEM=native \
   -e CONTAINER_NAME=dockergnn-dev \
   --workdir=/home/code \
